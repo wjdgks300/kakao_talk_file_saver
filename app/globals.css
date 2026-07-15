@@ -1,0 +1,36 @@
+:root {
+  --bg0: #0f1419;
+  --bg1: #1a222d;
+  --line: #2c3848;
+  --text: #e8eef6;
+  --muted: #8b9bb0;
+  --accent: #3d9cfd;
+  --accent-dim: #2563a8;
+  --ok: #3ecf8e;
+  --err: #ff6b7a;
+  --warn: #f0b429;
+  --radius: 14px;
+  --font: "Pretendard", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  background:
+    radial-gradient(1200px 600px at 10% -10%, #1a3a5c 0%, transparent 55%),
+    radial-gradient(900px 500px at 100% 0%, #163828 0%, transparent 50%),
+    var(--bg0);
+  color: var(--text);
+  font-family: var(--font);
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}

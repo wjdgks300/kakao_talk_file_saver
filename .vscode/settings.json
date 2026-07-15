@@ -1,0 +1,12 @@
+{
+  "terminal.integrated.env.windows": {
+    "Path": "C:\\Program Files\\nodejs;${env:Path}"
+  },
+  "terminal.integrated.profiles.windows": {
+    "PowerShell (Node)": {
+      "source": "PowerShell",
+      "args": ["-NoExit", "-Command", "Set-ExecutionPolicy -Scope Process Bypass"]
+    }
+  },
+  "terminal.integrated.defaultProfile.windows": "PowerShell (Node)"
+}
