@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { deletePrivateBlob, downloadPrivateBlob } from "@/lib/blob";
+import { deleteBlob, downloadBlob } from "@/lib/blob";
 import {
   createInboxRow,
   detectKind,
@@ -77,7 +77,7 @@ export async function POST(req: NextRequest) {
         const clientContentType =
           typeof f.contentType === "string" ? f.contentType : undefined;
 
-        const { buffer, contentType } = await downloadPrivateBlob(blobUrl);
+        const { buffer, contentType } = await downloadBlob(blobUrl);
         const resolvedContentType = clientContentType || contentType;
         const kind = detectKind(fileName, resolvedContentType);
 
@@ -100,7 +100,7 @@ export async function POST(req: NextRequest) {
         });
 
         try {
-          await deletePrivateBlob(blobUrl);
+          await deleteBlob(blobUrl);
         } catch (deleteErr) {
           console.error("[upload] Blob 삭제 실패:", deleteErr);
         }

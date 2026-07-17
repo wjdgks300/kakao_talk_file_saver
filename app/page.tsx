@@ -33,6 +33,68 @@ export default function HomePage() {
     if (dropped.length) setFiles(dropped);
   }, []);
 
+  async function uploadOneToBlob(f: File) {
+    const uploadSecret = process.env.NEXT_PUBLIC_UPLOAD_SECRET;
+    const headers = uploadSecret
+      ? { "x-upload-secret": uploadSecret }
+      : undefined;
+    // Store 생성 시 Public/Private와 반드시 같아야 함
+    const access =
+      process.env.NEXT_PUBLIC_BLOB_ACCESS === "public" ? "public" : "private";
+
+    try {
+      return await upload(f.name, f, {
+        access,
+        handleUploadUrl: "/api/blob-upload",
+        // 작은 파일은 단일 업로드가 더 안정적
+        multipart: f.size > 8 * 1024 * 1024,
+        contentType: f.type || undefined,
+        ...(headers ? { headers } : {}),
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Blob 업로드 실패";
+
+      // SDK는 "Failed to retrieve the client token"만 보여주므로
+      // 서버의 실제 에러 메시지를 다시 확인합니다.
+      const probe = await fetch("/api/blob-upload", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(headers ?? {}),
+        },
+        body: JSON.stringify({
+          type: "blob.generate-client-token",
+          payload: {
+            pathname: f.name,
+            clientPayload: null,
+            multipart: true,
+          },
+        }),
+      });
+      const data = (await probe.json().catch(() => null)) as {
+        error?: string;
+        clientToken?: string;
+      } | null;
+
+      if (!probe.ok) {
+        throw new Error(
+          data?.error ||
+            `Blob 토큰 발급 실패 (HTTP ${probe.status}). Vercel에 BLOB_READ_WRITE_TOKEN이 있는지 확인하세요.`
+        );
+      }
+
+      if (/store does not exist/i.test(msg)) {
+        throw new Error(
+          `Blob store를 찾을 수 없습니다. Store가 ${access}인지 확인하고, ` +
+            `다르면 Vercel 환경변수 NEXT_PUBLIC_BLOB_ACCESS / BLOB_ACCESS 를 ` +
+            `${access === "private" ? "public" : "private"} 로 바꾼 뒤 재배포하세요.`
+        );
+      }
+
+      throw err instanceof Error ? err : new Error("Blob 업로드 실패");
+    }
+  }
+
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setStatus({ type: "loading" });
@@ -44,15 +106,7 @@ export default function HomePage() {
       const blobFiles = files.length
         ? await Promise.all(
             files.map(async (f) => {
-              const blob = await upload(f.name, f, {
-                access: "private",
-                handleUploadUrl: "/api/blob-upload",
-                multipart: true,
-                contentType: f.type || undefined,
-                ...(uploadSecret
-                  ? { headers: { "x-upload-secret": uploadSecret } }
-                  : {}),
-              });
+              const blob = await uploadOneToBlob(f);
 
               return {
                 url: blob.url,

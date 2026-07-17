@@ -5,12 +5,13 @@ export const runtime = "nodejs";
 
 export async function POST(request: Request): Promise<NextResponse> {
   const body = (await request.json()) as HandleUploadBody;
+  const token = process.env.BLOB_READ_WRITE_TOKEN;
 
-  if (!process.env.BLOB_READ_WRITE_TOKEN) {
+  if (!token) {
     return NextResponse.json(
       {
         error:
-          "BLOB_READ_WRITE_TOKEN이 없습니다. Vercel 대시보드에서 Blob store를 이 프로젝트에 연결한 뒤 재배포하세요.",
+          "BLOB_READ_WRITE_TOKEN이 없습니다. Vercel 대시보드에서 Blob store 토큰을 넣고 재배포하세요.",
       },
       { status: 500 }
     );
@@ -20,9 +21,9 @@ export async function POST(request: Request): Promise<NextResponse> {
     const jsonResponse = await handleUpload({
       body,
       request,
+      // OIDC/BLOB_STORE_ID와 섞이지 않도록 토큰을 명시합니다.
+      token,
       onBeforeGenerateToken: async () => {
-        // 선택적으로 서버 업로드 API 보호를 재사용합니다.
-        // (기본값: UPLOAD_SECRET 미설정이면 제한 없음)
         const secret = process.env.UPLOAD_SECRET;
         if (secret) {
           const header = request.headers.get("x-upload-secret") || "";
@@ -32,31 +33,30 @@ export async function POST(request: Request): Promise<NextResponse> {
         return {
           allowedContentTypes: [
             "image/jpeg",
+            "image/jpg",
             "image/png",
             "image/webp",
             "image/gif",
             "image/heic",
+            "image/heif",
             "image/bmp",
             "application/pdf",
+            "application/octet-stream",
           ],
-          // Notion은 20MB 제한이라 서버에서 최종 검증하지만,
-          // Blob 업로드 토큰은 약간 더 크게 열어 둡니다.
           maximumSizeInBytes: 25 * 1024 * 1024,
           addRandomSuffix: true,
           tokenPayload: "",
         };
       },
       onUploadCompleted: async () => {
-        // No-op:
-        // Notion 저장은 클라이언트가 모든 blob 업로드를 마친 뒤
-        // /api/upload 한 번 호출로 처리됩니다.
+        // Notion 저장은 /api/upload에서 처리
       },
     });
 
     return NextResponse.json(jsonResponse);
   } catch (err) {
     const message = err instanceof Error ? err.message : "업로드 토큰 생성 실패";
+    console.error("[blob-upload]", message);
     return NextResponse.json({ error: message }, { status: 400 });
   }
 }
-
