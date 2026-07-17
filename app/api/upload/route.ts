@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+import { deletePrivateBlob, downloadPrivateBlob } from "@/lib/blob";
 import {
   createInboxRow,
   detectKind,
   getNotionConfig,
-  uploadFromUrlToNotion,
+  uploadFileToNotion,
 } from "@/lib/notion";
 import {
   getThemeDatabaseLabel,
@@ -73,21 +74,36 @@ export async function POST(req: NextRequest) {
       for (const f of files) {
         const blobUrl = String(f.url);
         const fileName = String(f.filename ?? "upload.bin");
-        // 업로드는 Blob에서 되어 있고, Notion으로 옮길 때 다운로드하면서 content-type도 확보합니다.
-        const uploaded = await uploadFromUrlToNotion(token, blobUrl, fileName);
-        const kind = detectKind(uploaded.fileName, uploaded.contentType);
+        const clientContentType =
+          typeof f.contentType === "string" ? f.contentType : undefined;
+
+        const { buffer, contentType } = await downloadPrivateBlob(blobUrl);
+        const resolvedContentType = clientContentType || contentType;
+        const kind = detectKind(fileName, resolvedContentType);
+
+        const fileUploadId = await uploadFileToNotion(token, {
+          buffer,
+          filename: fileName,
+          contentType: resolvedContentType,
+        });
 
         const page = await createInboxRow({
           token,
           databaseId: targetDatabaseId,
-          title: title || uploaded.fileName || body.slice(0, 40) || "웹업로드",
+          title: title || fileName || body.slice(0, 40) || "웹업로드",
           theme: usesDedicatedDb ? undefined : theme || undefined,
           body,
           kind,
           source: "웹업로드",
-          fileUploadId: uploaded.fileUploadId,
-          fileName: uploaded.fileName,
+          fileUploadId,
+          fileName,
         });
+
+        try {
+          await deletePrivateBlob(blobUrl);
+        } catch (deleteErr) {
+          console.error("[upload] Blob 삭제 실패:", deleteErr);
+        }
 
         items.push({
           url: page.url,

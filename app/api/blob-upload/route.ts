@@ -6,6 +6,16 @@ export const runtime = "nodejs";
 export async function POST(request: Request): Promise<NextResponse> {
   const body = (await request.json()) as HandleUploadBody;
 
+  if (!process.env.BLOB_READ_WRITE_TOKEN) {
+    return NextResponse.json(
+      {
+        error:
+          "BLOB_READ_WRITE_TOKEN이 없습니다. Vercel 대시보드에서 Blob store를 이 프로젝트에 연결한 뒤 재배포하세요.",
+      },
+      { status: 500 }
+    );
+  }
+
   try {
     const jsonResponse = await handleUpload({
       body,

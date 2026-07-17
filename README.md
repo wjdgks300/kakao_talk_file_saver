@@ -110,8 +110,27 @@ WEB_UPLOADER_URL=https://YOUR_VERCEL_DOMAIN.vercel.app
 그래서 업로드 요청 용량 제한(4.5MB)을 피하면서, Notion 제한(파일당 20MB)은 서버에서 그대로 적용됩니다.
 
 1. Vercel 대시보드 → Storage → **Create Database(Blob)**
-2. Blob store를 이 프로젝트에 연결하면 `BLOB_STORE_ID`, `VERCEL_OIDC_TOKEN` 등이 자동 주입됩니다.
-3. 업로드 라우트는 `/api/blob-upload` 를 사용합니다.
+2. Access는 **Private** 로 생성
+3. Blob store → **Connect to Project** → 이 Next.js 프로젝트 연결
+4. 연결 후 **재배포**(Redeploy) — `BLOB_READ_WRITE_TOKEN` 등이 주입됩니다
+5. 업로드 라우트는 `/api/blob-upload` 를 사용합니다
+6. 파일은 Notion 저장 직후 Blob에서 자동 삭제됩니다
+
+**로컬 테스트**
+
+```bash
+vercel env pull
+```
+
+`BLOB_READ_WRITE_TOKEN` 이 `.env.local` 에 들어와야 Blob 업로드가 됩니다.
+
+**자주 나는 문제**
+
+| 증상 | 원인 | 해결 |
+|------|------|------|
+| 「Notion으로 보내는 중…」에서 멈춤 | Blob 업로드 실패 | 아래 재배포·환경변수 확인 |
+| `BLOB_READ_WRITE_TOKEN이 없습니다` | Blob store 미연결 | Storage에서 프로젝트 연결 후 재배포 |
+| `권한이 없습니다` | `UPLOAD_SECRET`만 설정 | `NEXT_PUBLIC_UPLOAD_SECRET`도 같은 값으로 설정 |
 
 ### 선택 보안
 

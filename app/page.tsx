@@ -39,28 +39,31 @@ export default function HomePage() {
 
     const uploadSecret = process.env.NEXT_PUBLIC_UPLOAD_SECRET;
 
-    // 1) 파일은 Vercel Blob에 직접 업로드(서버less 4.5MB 제한 회피)
-    const blobFiles = files.length
-      ? await Promise.all(
-          files.map(async (f) => {
-            const blob = await upload(f.name, f, {
-              access: "public",
-              handleUploadUrl: "/api/blob-upload",
-              multipart: true,
-              contentType: f.type || undefined,
-            });
-
-            return {
-              url: blob.url,
-              filename: f.name || "upload.bin",
-              contentType: f.type || "application/octet-stream",
-              size: f.size,
-            };
-          })
-        )
-      : [];
-
     try {
+      // 1) 파일은 Vercel Blob에 직접 업로드(서버less 4.5MB 제한 회피)
+      const blobFiles = files.length
+        ? await Promise.all(
+            files.map(async (f) => {
+              const blob = await upload(f.name, f, {
+                access: "private",
+                handleUploadUrl: "/api/blob-upload",
+                multipart: true,
+                contentType: f.type || undefined,
+                ...(uploadSecret
+                  ? { headers: { "x-upload-secret": uploadSecret } }
+                  : {}),
+              });
+
+              return {
+                url: blob.url,
+                filename: f.name || "upload.bin",
+                contentType: f.type || "application/octet-stream",
+                size: f.size,
+              };
+            })
+          )
+        : [];
+
       // 2) Notion 저장은 /api/upload를 한 번만 호출해서 처리
       const res = await fetch("/api/upload", {
         method: "POST",
