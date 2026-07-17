@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
+import { upload } from "@vercel/blob/client";
 
 type Status =
   | { type: "idle" }
@@ -36,18 +37,54 @@ export default function HomePage() {
     e.preventDefault();
     setStatus({ type: "loading" });
 
-    const form = new FormData();
-    form.set("theme", theme);
-    form.set("title", title);
-    form.set("body", body);
-    for (const f of files) {
-      form.append("file", f);
-    }
+    const uploadSecret = process.env.NEXT_PUBLIC_UPLOAD_SECRET;
+
+    // 1) 파일은 Vercel Blob에 직접 업로드(서버less 4.5MB 제한 회피)
+    const blobFiles = files.length
+      ? await Promise.all(
+          files.map(async (f) => {
+            const blob = await upload(f.name, f, {
+              access: "public",
+              handleUploadUrl: "/api/blob-upload",
+              multipart: true,
+              contentType: f.type || undefined,
+            });
+
+            return {
+              url: blob.url,
+              filename: f.name || "upload.bin",
+              contentType: f.type || "application/octet-stream",
+              size: f.size,
+            };
+          })
+        )
+      : [];
 
     try {
-      const res = await fetch("/api/upload", { method: "POST", body: form });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "업로드 실패");
+      // 2) Notion 저장은 /api/upload를 한 번만 호출해서 처리
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(uploadSecret ? { "x-upload-secret": uploadSecret } : {}),
+        },
+        body: JSON.stringify({
+          theme,
+          title,
+          body,
+          files: blobFiles,
+        }),
+      });
+
+      let data: any = null;
+      try {
+        data = await res.json();
+      } catch {
+        const text = await res.text();
+        throw new Error(text || "업로드 실패");
+      }
+
+      if (!res.ok) throw new Error(data?.error || "업로드 실패");
 
       setStatus({
         type: "ok",

@@ -104,6 +104,15 @@ pdf
 WEB_UPLOADER_URL=https://YOUR_VERCEL_DOMAIN.vercel.app
 ```
 
+### Vercel Blob 설정
+웹 업로더는 파일을 `Vercel Function(/api/upload)`으로 그대로 보내지 않고, 먼저 **Vercel Blob**에 직접 업로드한 뒤에(브라우저 → Blob) 서버에는 `blob url`만 보내요.
+
+그래서 업로드 요청 용량 제한(4.5MB)을 피하면서, Notion 제한(파일당 20MB)은 서버에서 그대로 적용됩니다.
+
+1. Vercel 대시보드 → Storage → **Create Database(Blob)**
+2. Blob store를 이 프로젝트에 연결하면 `BLOB_STORE_ID`, `VERCEL_OIDC_TOKEN` 등이 자동 주입됩니다.
+3. 업로드 라우트는 `/api/blob-upload` 를 사용합니다.
+
 ### 선택 보안
 
 Vercel 환경변수에 카카오 사용자 ID를 넣으면 본인만 저장 가능합니다.

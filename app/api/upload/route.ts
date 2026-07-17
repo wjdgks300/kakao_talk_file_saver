@@ -3,7 +3,7 @@ import {
   createInboxRow,
   detectKind,
   getNotionConfig,
-  uploadFileToNotion,
+  uploadFromUrlToNotion,
 } from "@/lib/notion";
 import {
   getThemeDatabaseLabel,
@@ -25,12 +25,24 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const form = await req.formData();
-    const title = String(form.get("title") ?? "").trim();
-    const body = String(form.get("body") ?? "").trim();
-    const theme = String(form.get("theme") ?? "").trim();
-    const entries = form.getAll("file");
-    const files = entries.filter((v): v is File => v instanceof File && v.size > 0);
+    const input = (await req.json()) as {
+      theme?: unknown;
+      title?: unknown;
+      body?: unknown;
+      files?: Array<{
+        url?: unknown;
+        filename?: unknown;
+        contentType?: unknown;
+        size?: unknown;
+      }>;
+    };
+
+    const title = String(input.title ?? "").trim();
+    const body = String(input.body ?? "").trim();
+    const theme = String(input.theme ?? "").trim();
+    const files = Array.isArray(input.files)
+      ? input.files.filter((f): f is NonNullable<typeof f> => Boolean(f && typeof f.url === "string"))
+      : [];
 
     const hasFile = files.length > 0;
 
@@ -41,8 +53,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const tooLarge = files.find((f) => f.size > MAX_BYTES);
-    if (tooLarge) {
+    const tooLarge = files.find((f) => typeof f.size === "number" && f.size > MAX_BYTES);
+    if (tooLarge && typeof tooLarge.size === "number") {
       return NextResponse.json(
         { error: "파일은 20MB 이하여야 합니다. (Notion 제한) — 파일당 제한" },
         { status: 400 }
@@ -59,27 +71,22 @@ export async function POST(req: NextRequest) {
       const items: Array<{ url: string; kind: string; inbox?: string }> = [];
 
       for (const f of files) {
-        const fileName = f.name || "upload.bin";
-        const contentType = f.type || "application/octet-stream";
-        const kind = detectKind(fileName, contentType);
-
-        const buffer = Buffer.from(await f.arrayBuffer());
-        const fileUploadId = await uploadFileToNotion(token, {
-          buffer,
-          filename: fileName,
-          contentType,
-        });
+        const blobUrl = String(f.url);
+        const fileName = String(f.filename ?? "upload.bin");
+        // 업로드는 Blob에서 되어 있고, Notion으로 옮길 때 다운로드하면서 content-type도 확보합니다.
+        const uploaded = await uploadFromUrlToNotion(token, blobUrl, fileName);
+        const kind = detectKind(uploaded.fileName, uploaded.contentType);
 
         const page = await createInboxRow({
           token,
           databaseId: targetDatabaseId,
-          title: title || fileName || body.slice(0, 40) || "웹업로드",
+          title: title || uploaded.fileName || body.slice(0, 40) || "웹업로드",
           theme: usesDedicatedDb ? undefined : theme || undefined,
           body,
           kind,
           source: "웹업로드",
-          fileUploadId,
-          fileName,
+          fileUploadId: uploaded.fileUploadId,
+          fileName: uploaded.fileName,
         });
 
         items.push({
