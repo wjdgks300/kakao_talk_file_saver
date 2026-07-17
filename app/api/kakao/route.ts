@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createInboxRow, getNotionConfig } from "@/lib/notion";
+import { formatSaveSummary, parseKakaoMessage } from "@/lib/parse-kakao-message";
 
 export const runtime = "nodejs";
 
@@ -83,20 +84,20 @@ export async function POST(req: NextRequest) {
       return kakaoResponse("저장할 텍스트를 찾지 못했어요. 메시지를 다시 보내주세요.");
     }
 
+    const parsed = parseKakaoMessage(text);
     const { token, databaseId } = getNotionConfig();
-    const title = text.slice(0, 40);
 
     await createInboxRow({
       token,
       databaseId,
-      title,
-      body: text,
-      memo: userId ? `카카오 사용자 ID: ${userId}` : "카카오 스킬 요청",
+      title: parsed.title,
+      theme: parsed.theme,
+      memo: parsed.content,
       kind: "텍스트",
       source: "카톡",
     });
 
-    return kakaoResponse("✅ Notion에 저장했어요.");
+    return kakaoResponse(`✅ Notion에 저장했어요.\n${formatSaveSummary(parsed)}`);
   } catch (err) {
     const message = err instanceof Error ? err.message : "알 수 없는 오류";
     console.error("[kakao]", message);

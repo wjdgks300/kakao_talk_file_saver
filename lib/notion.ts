@@ -87,6 +87,7 @@ export async function createInboxRow(opts: {
   token: string;
   databaseId: string;
   title: string;
+  theme?: string;
   body?: string;
   memo?: string;
   kind: SaveKind;
@@ -101,6 +102,12 @@ export async function createInboxRow(opts: {
     종류: { select: { name: opts.kind } },
     출처: { select: { name: opts.source ?? "웹업로드" } },
   };
+
+  if (opts.theme?.trim()) {
+    properties["테마"] = {
+      rich_text: [{ text: { content: opts.theme.slice(0, 2000) } }],
+    };
+  }
 
   if (opts.body?.trim()) {
     properties["본문"] = {
