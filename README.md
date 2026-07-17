@@ -69,6 +69,41 @@ https://YOUR_VERCEL_DOMAIN.vercel.app/api/kakao
 - 이름 = 2줄
 - 메모 = 3줄~
 
+### 테마별 DB
+
+1줄 테마 이름에 맞는 DB가 있으면 **그 DB로 저장**됩니다.
+
+| 테마 (1줄) | DB |
+|------------|-----|
+| 주식 | [주식 수신함](https://app.notion.com/p/aea7efcd5a7f491784f4a3afec133edf) |
+| 일본어 | [일본어 수신함](https://app.notion.com/p/62efed56bd46467592d2084aae894ef9) |
+| (그 외 / 2줄만) | [카톡 수신함](https://app.notion.com/p/8f4ffc9fd7224bb78f7e3ac530fd526b) |
+
+Vercel 환경변수 `NOTION_THEME_DATABASES`에 JSON으로 매핑합니다.
+새 테마 DB를 Notion에 만들고 Integration 연결 후, JSON에 키를 추가하면 됩니다.
+
+```bash
+NOTION_THEME_DATABASES={"주식":"aea7efcd5a7f491784f4a3afec133edf","일본어":"62efed56bd46467592d2084aae894ef9"}
+```
+
+### 파일 업로더 열기
+
+카톡 봇에 아래 중 하나만 입력하면 웹 업로더 주소를 답합니다.
+
+```text
+사진
+pdf
+파일
+업로드
+```
+
+별도 주소를 사용하려면 Vercel 환경변수에 설정합니다. 비우면 현재 Vercel
+프로젝트의 루트 주소를 자동 사용합니다.
+
+```bash
+WEB_UPLOADER_URL=https://YOUR_VERCEL_DOMAIN.vercel.app
+```
+
 ### 선택 보안
 
 Vercel 환경변수에 카카오 사용자 ID를 넣으면 본인만 저장 가능합니다.

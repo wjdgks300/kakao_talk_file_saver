@@ -83,6 +83,48 @@ export async function uploadFileToNotion(
   return created.id;
 }
 
+/** 임시 URL(카카오 등)에서 파일을 받아 Notion에 업로드 후 file_upload id 반환 */
+export async function uploadFromUrlToNotion(
+  token: string,
+  url: string,
+  fallbackName = "file"
+): Promise<{ fileUploadId: string; fileName: string; contentType: string }> {
+  const res = await fetch(url);
+  if (!res.ok) {
+    throw new Error(`파일 다운로드 실패 (${res.status})`);
+  }
+
+  const contentType = res.headers.get("content-type") || "application/octet-stream";
+  const buffer = Buffer.from(await res.arrayBuffer());
+
+  let fileName = fallbackName;
+  try {
+    const pathname = new URL(url).pathname;
+    const base = pathname.split("/").pop();
+    if (base) fileName = decodeURIComponent(base);
+  } catch {
+    // keep fallback
+  }
+  if (!/\.[a-z0-9]+$/i.test(fileName)) {
+    const ext = contentType.includes("png")
+      ? ".png"
+      : contentType.includes("gif")
+        ? ".gif"
+        : contentType.includes("webp")
+          ? ".webp"
+          : ".jpg";
+    fileName = `${fileName}${ext}`;
+  }
+
+  const fileUploadId = await uploadFileToNotion(token, {
+    buffer,
+    filename: fileName,
+    contentType,
+  });
+
+  return { fileUploadId, fileName, contentType };
+}
+
 export async function createInboxRow(opts: {
   token: string;
   databaseId: string;
