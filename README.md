@@ -32,3 +32,22 @@ npm run dev
 ## 다음 (Phase B)
 
 같은 DB에 카카오 채널 봇 webhook을 붙입니다.
+
+### 카카오 스킬 URL
+
+Vercel 배포 후 카카오 오픈빌더 스킬 URL에 아래를 넣습니다.
+
+```text
+https://YOUR_VERCEL_DOMAIN.vercel.app/api/kakao
+```
+
+스킬 응답은 서버가 카카오 말풍선 JSON으로 직접 반환합니다.
+
+### 선택 보안
+
+첫 저장 테스트가 성공하면 Notion row의 메모에 남는 카카오 사용자 ID를 확인하고,
+Vercel 환경변수에 추가합니다.
+
+```bash
+KAKAO_ALLOWED_USER_IDS=사용자ID
+```

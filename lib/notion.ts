@@ -90,6 +90,7 @@ export async function createInboxRow(opts: {
   body?: string;
   memo?: string;
   kind: SaveKind;
+  source?: "웹업로드" | "카톡" | "메일" | "수동";
   fileUploadId?: string;
   fileName?: string;
 }) {
@@ -98,7 +99,7 @@ export async function createInboxRow(opts: {
       title: [{ text: { content: opts.title.slice(0, 2000) || "제목 없음" } }],
     },
     종류: { select: { name: opts.kind } },
-    출처: { select: { name: "웹업로드" } },
+    출처: { select: { name: opts.source ?? "웹업로드" } },
   };
 
   if (opts.body?.trim()) {
