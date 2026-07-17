@@ -67,19 +67,25 @@ export async function POST(req: NextRequest) {
     const targetDatabaseId = resolveDatabaseId(theme, defaultDatabaseId);
     const usesDedicatedDb = Boolean(theme && themeMap[theme.trim()]);
 
-    // 파일이 있으면 파일별로 row를 여러 개 생성
+    // 파일이 있으면 Notion 파일 업로드는 각각 처리하고, DB row는 1개만 생성
     if (hasFile) {
-      const items: Array<{ url: string; kind: string; inbox?: string }> = [];
+      const uploadedFiles: Array<{ fileUploadId: string; fileName: string }> = [];
+      const blobUrls: string[] = [];
+      const kinds: Array<ReturnType<typeof detectKind>> = [];
+      let firstFileName = "";
 
       for (const f of files) {
         const blobUrl = String(f.url);
+        blobUrls.push(blobUrl);
         const fileName = String(f.filename ?? "upload.bin");
+        if (!firstFileName) firstFileName = fileName;
         const clientContentType =
           typeof f.contentType === "string" ? f.contentType : undefined;
 
         const { buffer, contentType } = await downloadBlob(blobUrl);
         const resolvedContentType = clientContentType || contentType;
         const kind = detectKind(fileName, resolvedContentType);
+        kinds.push(kind);
 
         const fileUploadId = await uploadFileToNotion(token, {
           buffer,
@@ -87,32 +93,42 @@ export async function POST(req: NextRequest) {
           contentType: resolvedContentType,
         });
 
-        const page = await createInboxRow({
-          token,
-          databaseId: targetDatabaseId,
-          title: title || fileName || body.slice(0, 40) || "웹업로드",
-          theme: usesDedicatedDb ? undefined : theme || undefined,
-          body,
-          kind,
-          source: "웹업로드",
+        uploadedFiles.push({
           fileUploadId,
           fileName,
         });
+      }
 
+      const kind = kinds.every((k) => k === kinds[0]) ? kinds[0] : "기타";
+      const page = await createInboxRow({
+        token,
+        databaseId: targetDatabaseId,
+        title: title || firstFileName || body.slice(0, 40) || "웹업로드",
+        theme: usesDedicatedDb ? undefined : theme || undefined,
+        body,
+        kind,
+        source: "웹업로드",
+        files: uploadedFiles,
+      });
+
+      for (const blobUrl of blobUrls) {
         try {
           await deleteBlob(blobUrl);
         } catch (deleteErr) {
           console.error("[upload] Blob 삭제 실패:", deleteErr);
         }
-
-        items.push({
-          url: page.url,
-          kind,
-          inbox: getThemeDatabaseLabel(theme),
-        });
       }
 
-      return NextResponse.json({ ok: true, items });
+      return NextResponse.json({
+        ok: true,
+        items: [
+          {
+            url: page.url,
+            kind,
+            inbox: getThemeDatabaseLabel(theme),
+          },
+        ],
+      });
     }
 
     // 파일이 없고 텍스트만 있는 경우: 기존처럼 1개 row 생성

@@ -131,11 +131,11 @@ export async function createInboxRow(opts: {
   title: string;
   theme?: string;
   body?: string;
-  memo?: string;
   kind: SaveKind;
   source?: "웹업로드" | "카톡" | "메일" | "수동";
   fileUploadId?: string;
   fileName?: string;
+  files?: Array<{ fileUploadId: string; fileName?: string }>;
 }) {
   const properties: Record<string, unknown> = {
     이름: {
@@ -157,21 +157,20 @@ export async function createInboxRow(opts: {
     };
   }
 
-  if (opts.memo?.trim()) {
-    properties["메모"] = {
-      rich_text: [{ text: { content: opts.memo.slice(0, 2000) } }],
-    };
-  }
+  const files =
+    opts.files?.length
+      ? opts.files
+      : opts.fileUploadId
+        ? [{ fileUploadId: opts.fileUploadId, fileName: opts.fileName }]
+        : [];
 
-  if (opts.fileUploadId) {
+  if (files.length) {
     properties["파일"] = {
-      files: [
-        {
+      files: files.map((file) => ({
           type: "file_upload",
-          file_upload: { id: opts.fileUploadId },
-          name: opts.fileName || "file",
-        },
-      ],
+          file_upload: { id: file.fileUploadId },
+          name: file.fileName || "file",
+        })),
     };
   }
 

@@ -55,7 +55,7 @@ https://YOUR_VERCEL_DOMAIN.vercel.app/api/kakao
 ```
 
 - 이름 = 1줄
-- 메모 = 2줄~
+- 본문 = 2줄~
 
 **3줄 이상 (테마 + 제목 + 내용)**
 
@@ -67,7 +67,7 @@ https://YOUR_VERCEL_DOMAIN.vercel.app/api/kakao
 
 - 테마 = 1줄
 - 이름 = 2줄
-- 메모 = 3줄~
+- 본문 = 3줄~
 
 ### 테마별 DB
 
@@ -115,6 +115,8 @@ WEB_UPLOADER_URL=https://YOUR_VERCEL_DOMAIN.vercel.app
 4. 연결 후 **재배포**(Redeploy) — `BLOB_READ_WRITE_TOKEN` 등이 주입됩니다
 5. 업로드 라우트는 `/api/blob-upload` 를 사용합니다
 6. 파일은 Notion 저장 직후 Blob에서 자동 삭제됩니다
+
+사진/PDF를 여러 개 한 번에 올리면 Notion DB row는 **1개만** 만들고, `파일` 속성에 여러 파일을 함께 넣습니다.
 
 **로컬 테스트**
 

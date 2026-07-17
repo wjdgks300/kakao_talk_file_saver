@@ -128,7 +128,7 @@ export async function POST(req: NextRequest) {
         databaseId: targetDatabaseId,
         title: parsed.title,
         theme: usesDedicatedDb ? undefined : parsed.theme,
-        memo: parsed.content,
+        body: parsed.content,
         kind,
         source: "카톡",
         fileUploadId,
@@ -153,7 +153,7 @@ export async function POST(req: NextRequest) {
       databaseId: targetDatabaseId,
       title: parsed.title,
       theme: usesDedicatedDb ? undefined : parsed.theme,
-      memo: parsed.content,
+      body: parsed.content,
       kind: "텍스트",
       source: "카톡",
     });

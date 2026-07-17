@@ -6,8 +6,8 @@ export type ParsedKakaoMessage = {
 
 /** 카톡 메시지 줄 단위 파싱
  * - 1줄: 제목만
- * - 2줄: 1줄=제목, 2줄~=내용(메모)
- * - 3줄+: 1줄=테마, 2줄=제목, 3줄~=내용(메모)
+ * - 2줄: 1줄=제목, 2줄~=본문
+ * - 3줄+: 1줄=테마, 2줄=제목, 3줄~=본문
  */
 export function parseKakaoMessage(raw: string): ParsedKakaoMessage {
   const lines = raw
