@@ -1,21 +1,29 @@
 "use client";
 
-import { FormEvent, useCallback, useRef, useState } from "react";
+import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 
 type Status =
   | { type: "idle" }
   | { type: "loading" }
-  | { type: "ok"; url: string; kind: string }
+  | { type: "ok"; url: string; kind: string; inbox?: string }
   | { type: "err"; message: string };
 
 export default function HomePage() {
+  const [theme, setTheme] = useState("");
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
-  const [memo, setMemo] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const [status, setStatus] = useState<Status>({ type: "idle" });
+  const [themeOptions, setThemeOptions] = useState<string[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    fetch("/api/themes")
+      .then((res) => res.json())
+      .then((data) => setThemeOptions(Array.isArray(data.themes) ? data.themes : []))
+      .catch(() => setThemeOptions([]));
+  }, []);
 
   const onDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -29,9 +37,9 @@ export default function HomePage() {
     setStatus({ type: "loading" });
 
     const form = new FormData();
+    form.set("theme", theme);
     form.set("title", title);
     form.set("body", body);
-    form.set("memo", memo);
     if (file) form.set("file", file);
 
     try {
@@ -39,10 +47,9 @@ export default function HomePage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "업로드 실패");
 
-      setStatus({ type: "ok", url: data.url, kind: data.kind });
+      setStatus({ type: "ok", url: data.url, kind: data.kind, inbox: data.inbox });
       setTitle("");
       setBody("");
-      setMemo("");
       setFile(null);
       if (inputRef.current) inputRef.current.value = "";
     } catch (err) {
@@ -66,6 +73,22 @@ export default function HomePage() {
 
       <form onSubmit={onSubmit} style={styles.card}>
         <label style={styles.label}>
+          테마
+          <input
+            value={theme}
+            onChange={(e) => setTheme(e.target.value)}
+            placeholder="주식, 일본어… (비우면 일반 수신함)"
+            list="theme-options"
+            style={styles.input}
+          />
+          <datalist id="theme-options">
+            {themeOptions.map((t) => (
+              <option key={t} value={t} />
+            ))}
+          </datalist>
+        </label>
+
+        <label style={styles.label}>
           제목
           <input
             value={title}
@@ -83,16 +106,6 @@ export default function HomePage() {
             placeholder="카톡에서 복사한 메시지"
             rows={4}
             style={{ ...styles.input, resize: "vertical" as const }}
-          />
-        </label>
-
-        <label style={styles.label}>
-          메모 (선택)
-          <input
-            value={memo}
-            onChange={(e) => setMemo(e.target.value)}
-            placeholder="영수증, 자료…"
-            style={styles.input}
           />
         </label>
 
@@ -145,7 +158,7 @@ export default function HomePage() {
 
         {status.type === "ok" && (
           <p style={styles.ok}>
-            저장됨 ({status.kind}) —{" "}
+            {status.inbox ? `${status.inbox}에 저장됨` : "저장됨"} ({status.kind}) —{" "}
             <a href={status.url} target="_blank" rel="noreferrer" style={styles.link}>
               Notion에서 보기
             </a>

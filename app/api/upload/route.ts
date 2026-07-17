@@ -5,6 +5,11 @@ import {
   getNotionConfig,
   uploadFileToNotion,
 } from "@/lib/notion";
+import {
+  getThemeDatabaseLabel,
+  parseThemeDatabaseMap,
+  resolveDatabaseId,
+} from "@/lib/theme-databases";
 
 export const runtime = "nodejs";
 
@@ -23,7 +28,7 @@ export async function POST(req: NextRequest) {
     const form = await req.formData();
     const title = String(form.get("title") ?? "").trim();
     const body = String(form.get("body") ?? "").trim();
-    const memo = String(form.get("memo") ?? "").trim();
+    const theme = String(form.get("theme") ?? "").trim();
     const file = form.get("file");
 
     const hasFile = file instanceof File && file.size > 0;
@@ -42,7 +47,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { token, databaseId } = getNotionConfig();
+    const { token, databaseId: defaultDatabaseId } = getNotionConfig();
+    const themeMap = parseThemeDatabaseMap();
+    const targetDatabaseId = resolveDatabaseId(theme, defaultDatabaseId);
+    const usesDedicatedDb = Boolean(theme && themeMap[theme.trim()]);
 
     let fileUploadId: string | undefined;
     let fileName: string | undefined;
@@ -65,11 +73,12 @@ export async function POST(req: NextRequest) {
 
     const page = await createInboxRow({
       token,
-      databaseId,
+      databaseId: targetDatabaseId,
       title: title || fileName || body.slice(0, 40) || "웹업로드",
+      theme: usesDedicatedDb ? undefined : theme || undefined,
       body,
-      memo,
       kind,
+      source: "웹업로드",
       fileUploadId,
       fileName,
     });
@@ -79,6 +88,7 @@ export async function POST(req: NextRequest) {
       id: page.id,
       url: page.url,
       kind,
+      inbox: getThemeDatabaseLabel(theme),
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "알 수 없는 오류";
