@@ -29,9 +29,10 @@ export async function POST(req: NextRequest) {
     const title = String(form.get("title") ?? "").trim();
     const body = String(form.get("body") ?? "").trim();
     const theme = String(form.get("theme") ?? "").trim();
-    const file = form.get("file");
+    const entries = form.getAll("file");
+    const files = entries.filter((v): v is File => v instanceof File && v.size > 0);
 
-    const hasFile = file instanceof File && file.size > 0;
+    const hasFile = files.length > 0;
 
     if (!title && !body && !hasFile) {
       return NextResponse.json(
@@ -40,9 +41,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (hasFile && file.size > MAX_BYTES) {
+    const tooLarge = files.find((f) => f.size > MAX_BYTES);
+    if (tooLarge) {
       return NextResponse.json(
-        { error: "파일은 20MB 이하여야 합니다. (Notion 제한)" },
+        { error: "파일은 20MB 이하여야 합니다. (Notion 제한) — 파일당 제한" },
         { status: 400 }
       );
     }
@@ -52,43 +54,64 @@ export async function POST(req: NextRequest) {
     const targetDatabaseId = resolveDatabaseId(theme, defaultDatabaseId);
     const usesDedicatedDb = Boolean(theme && themeMap[theme.trim()]);
 
-    let fileUploadId: string | undefined;
-    let fileName: string | undefined;
-    let kind = detectKind();
-
+    // 파일이 있으면 파일별로 row를 여러 개 생성
     if (hasFile) {
-      fileName = file.name || "upload.bin";
-      const contentType = file.type || "application/octet-stream";
-      kind = detectKind(fileName, contentType);
+      const items: Array<{ url: string; kind: string; inbox?: string }> = [];
 
-      const buffer = Buffer.from(await file.arrayBuffer());
-      fileUploadId = await uploadFileToNotion(token, {
-        buffer,
-        filename: fileName,
-        contentType,
-      });
-    } else if (body) {
-      kind = "텍스트";
+      for (const f of files) {
+        const fileName = f.name || "upload.bin";
+        const contentType = f.type || "application/octet-stream";
+        const kind = detectKind(fileName, contentType);
+
+        const buffer = Buffer.from(await f.arrayBuffer());
+        const fileUploadId = await uploadFileToNotion(token, {
+          buffer,
+          filename: fileName,
+          contentType,
+        });
+
+        const page = await createInboxRow({
+          token,
+          databaseId: targetDatabaseId,
+          title: title || fileName || body.slice(0, 40) || "웹업로드",
+          theme: usesDedicatedDb ? undefined : theme || undefined,
+          body,
+          kind,
+          source: "웹업로드",
+          fileUploadId,
+          fileName,
+        });
+
+        items.push({
+          url: page.url,
+          kind,
+          inbox: getThemeDatabaseLabel(theme),
+        });
+      }
+
+      return NextResponse.json({ ok: true, items });
     }
 
+    // 파일이 없고 텍스트만 있는 경우: 기존처럼 1개 row 생성
     const page = await createInboxRow({
       token,
       databaseId: targetDatabaseId,
-      title: title || fileName || body.slice(0, 40) || "웹업로드",
+      title: title || body.slice(0, 40) || "웹업로드",
       theme: usesDedicatedDb ? undefined : theme || undefined,
       body,
-      kind,
+      kind: "텍스트",
       source: "웹업로드",
-      fileUploadId,
-      fileName,
     });
 
     return NextResponse.json({
       ok: true,
-      id: page.id,
-      url: page.url,
-      kind,
-      inbox: getThemeDatabaseLabel(theme),
+      items: [
+        {
+          url: page.url,
+          kind: "텍스트",
+          inbox: getThemeDatabaseLabel(theme),
+        },
+      ],
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "알 수 없는 오류";

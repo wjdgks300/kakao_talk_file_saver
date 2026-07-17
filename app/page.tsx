@@ -5,14 +5,14 @@ import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 type Status =
   | { type: "idle" }
   | { type: "loading" }
-  | { type: "ok"; url: string; kind: string; inbox?: string }
+  | { type: "ok"; items: Array<{ url: string; kind: string; inbox?: string }> }
   | { type: "err"; message: string };
 
 export default function HomePage() {
   const [theme, setTheme] = useState("");
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
   const [dragOver, setDragOver] = useState(false);
   const [status, setStatus] = useState<Status>({ type: "idle" });
   const [themeOptions, setThemeOptions] = useState<string[]>([]);
@@ -28,8 +28,8 @@ export default function HomePage() {
   const onDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     setDragOver(false);
-    const f = e.dataTransfer.files?.[0];
-    if (f) setFile(f);
+    const dropped = Array.from(e.dataTransfer.files ?? []);
+    if (dropped.length) setFiles(dropped);
   }, []);
 
   async function onSubmit(e: FormEvent) {
@@ -40,17 +40,22 @@ export default function HomePage() {
     form.set("theme", theme);
     form.set("title", title);
     form.set("body", body);
-    if (file) form.set("file", file);
+    for (const f of files) {
+      form.append("file", f);
+    }
 
     try {
       const res = await fetch("/api/upload", { method: "POST", body: form });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "업로드 실패");
 
-      setStatus({ type: "ok", url: data.url, kind: data.kind, inbox: data.inbox });
+      setStatus({
+        type: "ok",
+        items: Array.isArray(data.items) ? data.items : [],
+      });
       setTitle("");
       setBody("");
-      setFile(null);
+      setFiles([]);
       if (inputRef.current) inputRef.current.value = "";
     } catch (err) {
       setStatus({
@@ -126,21 +131,30 @@ export default function HomePage() {
           <input
             ref={inputRef}
             type="file"
+            multiple
             accept="image/*,.pdf,application/pdf"
             hidden
-            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+            onChange={(e) => setFiles(Array.from(e.target.files ?? []))}
           />
-          {file ? (
+          {files.length ? (
             <>
-              <strong>{file.name}</strong>
+              <strong>
+                {files.length === 1 ? files[0].name : `${files.length}개 파일 선택됨`}
+              </strong>
               <span style={styles.muted}>
-                {(file.size / 1024).toFixed(1)} KB · 클릭해서 바꾸기
+                {(() => {
+                  const totalBytes = files.reduce((acc, f) => acc + f.size, 0);
+                  const mb = totalBytes / (1024 * 1024);
+                  if (mb >= 1) return `${mb.toFixed(1)} MB · 클릭해서 바꾸기`;
+                  const kb = totalBytes / 1024;
+                  return `${kb.toFixed(1)} KB · 클릭해서 바꾸기`;
+                })()}
               </span>
             </>
           ) : (
             <>
               <strong>파일을 끌어다 놓거나 클릭</strong>
-              <span style={styles.muted}>사진 / PDF · 최대 20MB</span>
+              <span style={styles.muted}>사진 / PDF · 최대 20MB (파일당)</span>
             </>
           )}
         </div>
@@ -158,10 +172,19 @@ export default function HomePage() {
 
         {status.type === "ok" && (
           <p style={styles.ok}>
-            {status.inbox ? `${status.inbox}에 저장됨` : "저장됨"} ({status.kind}) —{" "}
-            <a href={status.url} target="_blank" rel="noreferrer" style={styles.link}>
-              Notion에서 보기
-            </a>
+            저장됨: {status.items.length}개 —{" "}
+            {status.items[0]?.url ? (
+              <a
+                href={status.items[0].url}
+                target="_blank"
+                rel="noreferrer"
+                style={styles.link}
+              >
+                첫 번째 Notion에서 보기
+              </a>
+            ) : (
+              "결과 링크 없음"
+            )}
           </p>
         )}
         {status.type === "err" && <p style={styles.err}>{status.message}</p>}
