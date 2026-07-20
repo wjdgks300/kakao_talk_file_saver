@@ -133,19 +133,21 @@ export default function HomePage() {
         }),
       });
 
-      let data: any = null;
+      const raw = await res.text();
+      let data: { error?: string; items?: unknown[] } | null = null;
       try {
-        data = await res.json();
+        data = raw ? JSON.parse(raw) : null;
       } catch {
-        const text = await res.text();
-        throw new Error(text || "업로드 실패");
+        throw new Error(raw || "업로드 실패");
       }
 
-      if (!res.ok) throw new Error(data?.error || "업로드 실패");
+      if (!res.ok) throw new Error(data?.error || raw || "업로드 실패");
 
       setStatus({
         type: "ok",
-        items: Array.isArray(data.items) ? data.items : [],
+        items: Array.isArray(data?.items)
+          ? (data.items as Array<{ url: string; kind: string; inbox?: string }>)
+          : [],
       });
       setTitle("");
       setBody("");
